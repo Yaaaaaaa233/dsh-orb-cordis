@@ -19,7 +19,7 @@ window.__ModuleLoader__.load({
       ball: '启用悬浮球',
       ballDescription: '关闭后插件仍在，Computer Use 仍可在主窗口使用。',
       avatarTitle: '悬浮球头像',
-      avatarDescription: '点一张内置动图，或选择自己的图片。上传支持 GIF、PNG、WebP，2 MB 以内。',
+      avatarDescription: '选择内置头像，或上传 GIF、PNG、WebP 图片（2 MB 以内）。木偶 Bot 支持悬停互动、任务动画和五分钟空闲休眠。',
       avatarAlt: '悬浮球头像预览',
       avatarBuiltin: '内置动图',
       avatarPresetNames: {
@@ -29,6 +29,7 @@ window.__ModuleLoader__.load({
         cheer: '欢呼',
         cheeks: '托腮',
         smile: '微笑',
+        'mascot-v10': '木偶 Bot',
       },
       chooseImage: '选择图片',
       restoreDefault: '恢复默认',
@@ -73,7 +74,7 @@ window.__ModuleLoader__.load({
       ball: 'Enable the floating ball',
       ballDescription: 'Turning this off keeps the plugin loaded. Computer Use stays available in the main window.',
       avatarTitle: 'Ball image',
-      avatarDescription: 'Pick a built-in animation, or choose your own image. Uploads accept GIF, PNG, and WebP up to 2 MB.',
+      avatarDescription: 'Choose a built-in avatar, or upload GIF, PNG, or WebP up to 2 MB. Puppet Bot reacts to hover and tasks, and sleeps after five idle minutes.',
       avatarAlt: 'Floating-ball image preview',
       avatarBuiltin: 'Built-in animations',
       avatarPresetNames: {
@@ -83,6 +84,7 @@ window.__ModuleLoader__.load({
         cheer: 'Cheer',
         cheeks: 'Cheeks',
         smile: 'Smile',
+        'mascot-v10': 'Puppet Bot',
       },
       chooseImage: 'Choose image',
       restoreDefault: 'Restore default',

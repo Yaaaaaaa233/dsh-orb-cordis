@@ -74,4 +74,8 @@ SOFTWARE.
 
 ## Other dependencies
 
+### Local Puppet Bot skin
+
+`packages/helper/assets/skins/mascot-v10/` and `assets/avatars/mascot-v10.png` are custom artwork prepared from the user's supplied character reference and the local v13 animation preview. Body and hair were separated, the lower outfit and left hair extended, and repeated side fins removed using image generation; animation code and bitmap status glyphs were prepared locally. One starry fin is retained on each side. The preset id retains its original v10 name for compatibility. No font files are redistributed. Existing DeepSeek artwork and trademark notices above continue to apply where relevant.
+
 Runtime and development dependencies declared in the workspace packages (for example `koffi`, `zod`, `tsdown`, `typescript`, `vitest`) keep their own licenses as published on npm; this repository does not vendor or redistribute their source.

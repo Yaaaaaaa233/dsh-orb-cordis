@@ -1,6 +1,6 @@
 {
   "name": "dsh-orb",
-  "version": "0.0.0",
+  "version": "0.0.0-local.6",
   "type": "module",
   "description": "Installable Orb bundle. Inserts the Computer Use preset and the floating-ball host.",
   "main": "lib/index.js",
@@ -30,7 +30,10 @@
     "lib",
     "client.js",
     "dist",
-    "cordis.patch.yml"
+    "cordis.patch.yml",
+    "LICENSE",
+    "THIRD-PARTY-NOTICES.md",
+    "LOCAL-CHANGES.md"
   ],
   "scripts": {
     "build": "node ./scripts/assemble.mjs",

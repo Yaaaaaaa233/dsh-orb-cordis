@@ -535,6 +535,14 @@ describe('ball control socket', { concurrency: 1 }, () => {
       assert.equal(message.src, 'avatars/cheer.gif')
       assert.ok(message.version > 0)
       picked.socket.destroy()
+
+      harness.store.selectAvatarPreset('mascot-v10')
+      const skin = await connect(harness.runtime)
+      const descriptor = skin.messages.find((entry) => entry.type === 'avatar')
+      assert.equal(descriptor.kind, 'skin')
+      assert.equal(descriptor.id, 'mascot-v10')
+      assert.equal(descriptor.src, undefined)
+      skin.socket.destroy()
     } finally {
       harness.runtime.halt()
     }

@@ -8,6 +8,7 @@ import { BrowserWindow, ipcMain, screen } from 'electron'
 import { fileURLToPath } from 'node:url'
 import type { NativeHandleWindow } from './chrome-windows.ts'
 import { createAgentCloak, scheduleCloakAck } from './cloak.ts'
+import { BALL_WINDOW_LEVEL } from './window-level.ts'
 import {
   observationFrameCssScript,
   observationFramePlacement,
@@ -106,7 +107,7 @@ export async function attachOverlays(deps: OverlayDeps): Promise<{
     if (!frame.isDestroyed()) frame.setAlwaysOnTop(true, 'floating')
     if (!toolbar.isDestroyed()) toolbar.setAlwaysOnTop(true, 'screen-saver')
     const ball = deps.ball()
-    if (ball && !ball.isDestroyed()) ball.setAlwaysOnTop(true, 'screen-saver')
+    if (ball && !ball.isDestroyed()) ball.setAlwaysOnTop(true, BALL_WINDOW_LEVEL)
   }
 
   return {

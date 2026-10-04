@@ -16,12 +16,20 @@ There is no telemetry.
 
 On startup the plugin spawns its own helper (a pinned, verified Electron runtime in an isolated profile) and the ball appears at the right edge of the primary display, always on top.
 
-- **Hover** expands the panel, **click** pins it, and it collapses when the pointer leaves. **Drag** moves the ball; dragging it beyond the left or right screen edge docks it into a thin sliver — hover again to slide it back.
+- **Hover or click** opens the panel. While idle, it collapses when the pointer leaves unless the header's **Keep open** pin is enabled. During a task, the same button becomes **Minimize**: the ball keeps working while collapsed, and new replies do not reopen it. **Drag** moves the ball; dragging it beyond the left or right screen edge docks it into a thin sliver — hover again to slide it back.
 - **Right-click** opens the menu: open the main window, floating-ball agent settings and background agent settings (each track picks its own model and thinking level), the coordinate-encoding toggle, and "Disable floating ball". The ball follows the official dsh process — when the official app exits, the ball exits with it.
 - The panel carries the ball's conversation history with **History** and **New**, an **Access** chip (view-only / workspace edits / full access; full by default, applying to the ball's commands and the background sessions it dispatches), and a composer that wraps around the ball. When the agent asks you a question, the question card is answered right on the ball; if the helper disconnects, an unanswered question is handed back to the main window.
 - The transcript is rendered natively in the ball: streaming thinking / text / tool calls interleaved in arrival order, collapsible tool cards with parameters and results (terminal, diff, read, search, web), Shiki dual-theme highlighting, copy buttons for user and assistant messages, and a per-turn token-usage pill.
 - Appearance follows the main window: dark / light theme and interface language (Chinese / English) mirror the official appearance and language settings, including live switching.
 - The ball avatar can be set to one of six built-in animated GIFs, or replaced with a custom GIF / PNG / WebP (2 MB cap), in main-window **Settings → Floating Ball**. The built-ins stay animated: the ball plays them whenever it is active, exactly like the shipped default.
+
+### Local animated skin (0.0.0-local.6)
+
+Select **Puppet Bot** under **Settings → Floating Ball → Built-in animations**. It gently sways while idle, reacts to hover, sleeps after five idle minutes, and animates during the ball's own tasks. Task completion eases into a rebound. Sleep glyphs and the thinking spinner follow the body. Dragging, typing, active tasks and pending questions keep it awake. Docking suspends drawing and undocking resumes it. Global cursor gaze tracking is reserved for a later update.
+
+See [LOCAL-CHANGES.md](LOCAL-CHANGES.md) for the local changes and verification. Pick another avatar or restore the default to return to ordinary image mode.
+
+The v13 artwork extends the left hair beyond the old straight crop and retains exactly one starry fish fin on each side. Character landmarks and the approved v11 motions are preserved.
 
 ## Dual-track agent architecture
 

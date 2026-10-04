@@ -51,10 +51,18 @@ function checkInstalled(profile, root) {
 
   // Files the host reaches by relative path.
   for (const rel of [
+    'LICENSE',
+    'THIRD-PARTY-NOTICES.md',
+    'LOCAL-CHANGES.md',
     'dist/helper/lib/main.js',
     'dist/helper/preload.cjs',
     'dist/helper/selection-preload.cjs',
     'dist/helper/assets/floating.html',
+    'dist/helper/assets/panel-state.js',
+    'dist/helper/assets/mascot-renderer.js',
+    'dist/helper/assets/mascot-state.js',
+    'dist/helper/assets/mascot-motion.js',
+    ...readdirSync(join(repo, 'packages/helper/assets/skins/mascot-v10')).map((file) => `dist/helper/assets/skins/mascot-v10/${file}`),
     'dist/helper/assets/deepseek-avatar-square.gif',
     // Every built-in avatar the host can offer has to be in the installed tree.
     ...readdirSync(join(repo, 'packages/helper/assets/avatars')).map((file) => `dist/helper/assets/avatars/${file}`),
@@ -91,7 +99,8 @@ describe('dsh-orb install layout', () => {
   it('resolves every patch row when the tarball is unpacked into the profile', () => {
     const packed = spawnSync(process.execPath, [join(bundle, 'scripts/pack.mjs')], { cwd: repo, stdio: 'pipe', encoding: 'utf8' })
     assert.equal(packed.status, 0, packed.stderr)
-    const tarball = join(repo, 'dsh-orb-0.0.0.tgz')
+    const version = JSON.parse(readFileSync(join(bundle, 'package.json'), 'utf8')).version
+    const tarball = join(repo, `dsh-orb-${version}.tgz`)
     assert.ok(existsSync(tarball))
     try {
       const profile = profileWith((target) => {

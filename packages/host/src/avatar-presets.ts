@@ -13,6 +13,8 @@ export interface AvatarPreset {
   readonly id: string
   /** File inside `assets/avatars`. */
   readonly file: string
+  readonly mime?: 'image/png'
+  readonly skin?: 'mascot-v10'
 }
 
 /** Gallery order is this order. */
@@ -23,6 +25,7 @@ export const AVATAR_PRESETS: readonly AvatarPreset[] = [
   { id: 'cheer', file: 'cheer.gif' },
   { id: 'cheeks', file: 'cheeks.gif' },
   { id: 'smile', file: 'smile.gif' },
+  { id: 'mascot-v10', file: 'mascot-v10.png', mime: 'image/png', skin: 'mascot-v10' },
 ]
 
 export function findAvatarPreset(id: string): AvatarPreset | undefined {
@@ -43,4 +46,8 @@ export function avatarPresetPath(id: string): string | undefined {
 export function avatarPresetSrc(id: string): string | undefined {
   const preset = findAvatarPreset(id)
   return preset === undefined ? undefined : `avatars/${preset.file}`
+}
+
+export function avatarPresetMime(id: string): string {
+  return findAvatarPreset(id)?.mime ?? 'image/gif'
 }

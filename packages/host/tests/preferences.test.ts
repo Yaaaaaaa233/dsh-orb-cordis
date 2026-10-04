@@ -121,6 +121,9 @@ describe('profile preferences', () => {
     assert.equal(existsSync(join(path, 'orb-avatar')), false)
     assert.deepEqual(new ProfileStore(path).avatarSelection(), { kind: 'preset', id: 'point' })
 
+    store.selectAvatarPreset('mascot-v10')
+    assert.deepEqual(new ProfileStore(path).avatarSelection(), { kind: 'preset', id: 'mascot-v10' })
+
     // A preset that this build no longer ships falls back to the shipped GIF.
     writeFileSync(join(path, 'orb-avatar.json'), JSON.stringify({ kind: 'preset', preset: 'gone' }))
     assert.deepEqual(new ProfileStore(path).avatarSelection(), { kind: 'default' })

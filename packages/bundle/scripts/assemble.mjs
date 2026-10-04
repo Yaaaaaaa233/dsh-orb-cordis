@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url'
 
 const bundleRoot = resolve(fileURLToPath(new URL('..', import.meta.url)))
 const packages = resolve(bundleRoot, '..')
+const repoRoot = resolve(packages, '..')
 
 const OLD_CLIENT_ID = "id: '@dsh-orb/client-ui-settings-orb'"
 const NEW_CLIENT_ID = "id: 'dsh-orb'"
@@ -78,13 +79,17 @@ await copyFrom('native-selection', 'prebuilds/darwin-universal', join(dist, 'nat
 
 await rewrite(join(dist, 'host', 'index.js'), SELECTION_SPECIFIER, SELECTION_RELATIVE, 1)
 
+// Retain upstream attribution in distributed local builds.
+const notices = ['LICENSE', 'THIRD-PARTY-NOTICES.md', 'LOCAL-CHANGES.md']
+for (const entry of notices) await cp(join(repoRoot, entry), join(stage, entry))
+
 if (!inPlace) {
   await cp(join(bundleRoot, 'package.json'), join(stage, 'package.json'))
   await cp(join(bundleRoot, 'cordis.patch.yml'), join(stage, 'cordis.patch.yml'))
 }
 
 const retired = await mkdtemp(join(outRoot, '.retired-'))
-for (const entry of ['lib', 'dist', 'client.js']) {
+for (const entry of ['lib', 'dist', 'client.js', ...notices]) {
   const target = join(outRoot, entry)
   if (existsSync(target)) await rename(target, join(retired, entry))
   await rename(join(stage, entry), target)

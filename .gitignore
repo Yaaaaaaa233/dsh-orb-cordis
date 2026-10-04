@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .pnpm-store/
+__pycache__/
 
 # Build output
 dist/
@@ -61,3 +62,6 @@ Thumbs.db
 # Assembled by packages/bundle/scripts/assemble.mjs
 packages/bundle/lib/
 packages/bundle/client.js
+packages/bundle/LICENSE
+packages/bundle/THIRD-PARTY-NOTICES.md
+packages/bundle/LOCAL-CHANGES.md

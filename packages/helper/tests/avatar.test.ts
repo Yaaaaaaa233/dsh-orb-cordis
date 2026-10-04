@@ -3,6 +3,12 @@ import assert from 'node:assert/strict'
 import { readAvatarChoice } from '../src/avatar.ts'
 
 describe('avatar messages', () => {
+  it('accepts only the bundled animated skin identifier', () => {
+    assert.deepEqual(readAvatarChoice({ kind: 'skin', id: 'mascot-v10' }), { kind: 'skin', id: 'mascot-v10' })
+    for (const id of ['../mascot-v10', 'file:///tmp/code.js', 'unknown', undefined]) {
+      assert.deepEqual(readAvatarChoice({ kind: 'skin', id }), { kind: 'default' })
+    }
+  })
   it('reads a preset as the relative source the ball page can load', () => {
     assert.deepEqual(readAvatarChoice({ kind: 'preset', src: 'avatars/heart.gif', version: 7 }), {
       kind: 'preset',

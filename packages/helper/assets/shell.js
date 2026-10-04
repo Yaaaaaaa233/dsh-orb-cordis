@@ -1,3 +1,9 @@
+// Bounded metadata captured by the helper; no conversation content is logged.
+function orbDiagnostic(event, fields = {}) {
+  console.info('ORB_DIAGNOSTIC ' + JSON.stringify({ event, ...fields }))
+}
+window.addEventListener('error', (event) => orbDiagnostic('error', { name: event.error?.name || 'Error', line: event.lineno, column: event.colno }))
+window.addEventListener('unhandledrejection', (event) => orbDiagnostic('rejection', { name: event.reason?.name || 'Unknown' }))
 import { renderMarkdown } from './markdown.js'
 import {
   processLabel, reasoningSummary, processTitle, toolTitle, toolLabels, classifyTool, deriveSummary,
@@ -6,6 +12,8 @@ import {
   usageLabels, tokenUsageTotal, formatTokenCount,
 } from './transcript-model.js'
 import { upgradeCodeBlocks } from './highlight.js'
+import { createMascotRenderer } from './mascot-renderer.js'
+import { canAutoCollapse, panelControlAction } from './panel-state.js'
 import {
   icon, THINK, CHEVRON_DOWN, CHEVRON_UP, SEARCH, GLOBE, BROWSE, EDIT, CODE, API, SPARKLE, COPY, CHECK, stateSpinner,
 } from './icons.js'
@@ -26,6 +34,11 @@ const zh = {
   stop: '停止',
   fresh: '新建',
   history: '历史',
+  pin: '保持展开',
+  unpin: '取消保持展开',
+  minimize: '最小化，任务继续运行',
+  needsAnswer: '需要回答，点击展开',
+  open: '展开桌面 agent',
   historyEmpty: '还没有 Computer Use 对话。',
   untitled: '未命名对话',
   placeholder: '向桌面 agent 发送消息…',
@@ -70,6 +83,11 @@ const en = {
   stop: 'Stop',
   fresh: 'New',
   history: 'History',
+  pin: 'Keep open',
+  unpin: 'Cancel keep open',
+  minimize: 'Minimize — keep task running',
+  needsAnswer: 'Answer needed — click to open',
+  open: 'Open desktop agent',
   historyEmpty: 'No Computer Use chats yet.',
   untitled: 'Untitled',
   placeholder: 'Ask the desktop agent…',
@@ -242,6 +260,7 @@ function main() {
   const status = document.querySelector('#status')
   const prompt = document.querySelector('#prompt')
   const composer = document.querySelector('#composer')
+  const panelControl = document.querySelector('#panel-control')
   applyStaticText()
 
   let expanded = false
@@ -256,6 +275,9 @@ function main() {
   let skipClick = false
   let skipDockCommit = false
   let suppressExpand = false
+  let manuallyMinimized = false
+  let composing = false
+  let expansionRevision = 0
   let docked
   let dockHoverArmed = true
   let dockPointerInside = false
@@ -270,6 +292,10 @@ function main() {
   let pending
   let sessionId = ''
   let avatarSrc = 'deepseek-avatar-square.gif'
+  let mascotRequested = false
+  let mascotRenderer, mascotLoading
+  let mascotFailed = false, ballHovered = false
+  window.addEventListener('pagehide', () => mascotRenderer?.dispose(), { once: true })
   let historyItems = []
   const blocks = new Map()
   // Last message per block key: the locale refresh re-renders from it.
@@ -324,6 +350,7 @@ function main() {
   /** Re-render every text surface after the dictionary switched. */
   function refreshAllText() {
     applyStaticText()
+    syncPanelControl()
     renderPermission()
     renderHistory()
     if (pending !== undefined) renderQuestion()
@@ -377,9 +404,49 @@ function main() {
     return pending !== undefined
   }
 
+  setInterval(() => orbDiagnostic('state', { running, expanded, pinned, asking: asking(), queued: staged.length }), 5000)
+
+  function panelState() {
+    return { expanded, pinned, running, asking: asking(), dragging, pointerInside: dockPointerInside, composing }
+  }
+
+  function syncPanelControl() {
+    const action = panelControlAction(panelState())
+    panelControl.dataset.action = action
+    if (action === 'pin') panelControl.setAttribute('aria-pressed', String(pinned))
+    else panelControl.removeAttribute('aria-pressed')
+    const label = action === 'minimize' ? messages.minimize : pinned ? messages.unpin : messages.pin
+    panelControl.setAttribute('aria-label', label)
+    panelControl.title = label
+    const ballLabel = asking() ? messages.needsAnswer : running ? messages.running : messages.open
+    ball.setAttribute('aria-label', ballLabel)
+    ball.title = ballLabel
+  }
+
+  function clearCollapseTimer() {
+    if (collapseTimer !== undefined) clearTimeout(collapseTimer)
+    collapseTimer = undefined
+  }
+
+  function minimizePanel() {
+    manuallyMinimized = true
+    suppressExpand = true
+    setPermissionOpen(false)
+    void setExpanded(false, true)
+  }
+
   function syncGif() {
     if (pageClosed()) return
     const gif = document.querySelector('#ball-gif')
+    if (mascotRequested && !mascotFailed) {
+      mascotRenderer?.update({ running, asking: asking(), hovered: ballHovered, dragging, visible: docked === undefined })
+      if (mascotRenderer) {
+        mascotRenderer.setEnabled(true)
+        document.querySelector('#ball-mascot').hidden = false
+        gif.hidden = true
+      } else if (gif.getAttribute('src') !== avatarSrc) gif.src = avatarSrc
+      return
+    }
     const play = expanded || running || asking() || tccGateVisible || attachedSelection !== ''
     if (play) {
       if (gif.dataset.mode !== 'play') {
@@ -395,12 +462,15 @@ function main() {
   }
 
   function setRunning(next, interrupted = false) {
+    orbDiagnostic('set-running-enter', { running: next })
     running = next
     if (pageClosed()) return
     document.body.classList.toggle('running', running)
     stop.hidden = !expanded || !running
+    syncPanelControl()
     syncGif()
     if (next) {
+      clearCollapseTimer()
       const group = ensureProcess()
       if (!group.live) {
         group.live = true
@@ -427,6 +497,8 @@ function main() {
       setProcessOpen(processGroup, false)
       refreshProcessLabel(processGroup)
     }
+    scheduleCollapse()
+    orbDiagnostic('set-running-exit', { running })
   }
 
   function applyDirection(state) {
@@ -449,6 +521,7 @@ function main() {
     document.body.classList.toggle('docked', next !== undefined)
     document.body.classList.toggle('docked-left', next === 'left')
     document.body.classList.toggle('docked-right', next === 'right')
+    syncGif()
     clearDockHoverTimer()
     if (next === undefined) {
       dockTab.hidden = true
@@ -489,16 +562,18 @@ function main() {
 
   async function setExpanded(next, force = false) {
     if (pageClosed()) return
-    if (collapseTimer !== undefined) {
-      clearTimeout(collapseTimer)
-      collapseTimer = undefined
-    }
+    clearCollapseTimer()
     if (collapseFrame !== undefined) {
       clearTimeout(collapseFrame)
       collapseFrame = undefined
     }
+    if (!next && !force && !canAutoCollapse(panelState())) return
+    const revision = ++expansionRevision
     if (next) {
+      manuallyMinimized = false
+      if (expanded) return
       const state = await api.setExpanded(true)
+      if (pageClosed() || revision !== expansionRevision) return
       applyDocked(undefined)
       applyDirection(state)
       panel.hidden = false
@@ -508,7 +583,6 @@ function main() {
       syncGif()
       return
     }
-    if (!force && (pinned || running || asking())) return
     expanded = false
     document.body.classList.remove('expanded')
     if (docked !== undefined) dockTab.hidden = false
@@ -532,11 +606,12 @@ function main() {
   }
 
   function scheduleCollapse() {
-    if (pinned || running || asking() || dragging) return
-    if (collapseTimer !== undefined) clearTimeout(collapseTimer)
+    clearCollapseTimer()
+    if (!canAutoCollapse(panelState())) return
     collapseTimer = setTimeout(() => {
       collapseTimer = undefined
-      void setExpanded(false)
+      // Recheck at fire time: a task or pointer re-entry may have happened.
+      if (canAutoCollapse(panelState())) void setExpanded(false)
     }, COLLAPSE_MS)
   }
 
@@ -1136,7 +1211,7 @@ function main() {
         truncated.textContent = chatLabels.contentTruncated
         meta.append(truncated)
       }
-      fetch.append(url, meta)
+      fetch.append(meta)
       card.append(fetch)
       return card
     }
@@ -1502,17 +1577,21 @@ function main() {
   const staged = []
   let stagedFrame
   function stage(message) {
+    if (message.type === 'turn') orbDiagnostic('turn-stage', { running: message.running, queued: staged.length })
     staged.push(message)
     stagedFrame ??= requestAnimationFrame(() => {
       stagedFrame = undefined
       const list = staged.splice(0)
       const nearBottom = transcript.scrollHeight - transcript.scrollTop - transcript.clientHeight < 120
+      const hasTurn = list.some((item) => item.type === 'turn')
+      if (hasTurn) orbDiagnostic('batch-start', { count: list.length })
       for (const item of list) {
         if (item.type === 'block') upsertBlock(item)
         else if (item.type === 'block-drop') removeBlock(item.key)
         else if (item.type === 'turn') setRunning(item.running === true, item.interrupted === true)
         else if (item.type === 'reset') clearTranscript()
       }
+      if (hasTurn) orbDiagnostic('batch-end', { count: list.length, running })
       if (nearBottom) transcript.scrollTop = transcript.scrollHeight
     })
   }
@@ -1661,6 +1740,8 @@ function main() {
     questionRoot.hidden = !showCard
     transcript.hidden = historyOpen
     if (showCard) renderQuestion()
+    syncPanelControl()
+    if (asking()) clearCollapseTimer()
     syncGif()
   }
 
@@ -1742,13 +1823,15 @@ function main() {
     pending = { id: payload.id, questions: payload.questions, drafts: emptyDrafts(payload.questions), index: 0, busy: false }
     setHistoryOpen(false)
     syncQuestion()
-    void setExpanded(true)
+    // A question signals the ball, but respects an explicit minimize.
+    if (!manuallyMinimized) void setExpanded(true)
   }
 
   function clearQuestion(id) {
     if (pending === undefined || pending.id !== id) return
     pending = undefined
     syncQuestion()
+    scheduleCollapse()
   }
 
   function isPrimaryButton(event) {
@@ -1759,8 +1842,16 @@ function main() {
     return (event.buttons & 1) === 1
   }
 
+  ball.addEventListener('pointerenter', () => { ballHovered = true; syncGif() })
+  ball.addEventListener('pointerleave', () => { ballHovered = false; syncGif() })
+  document.body.addEventListener('pointerdown', () => mascotRenderer?.interact(), { capture: true })
+  document.body.addEventListener('keydown', () => mascotRenderer?.interact(), { capture: true })
+  prompt.addEventListener('input', () => mascotRenderer?.interact())
+  dockTab.addEventListener('pointerenter', () => mascotRenderer?.interact(true))
+
   document.body.addEventListener('pointerenter', () => {
     dockPointerInside = true
+    clearCollapseTimer()
     if (dragging || collapsing) return
     if (docked !== undefined) {
       if (dockHoverArmed) void unsnapDocked()
@@ -1795,13 +1886,12 @@ function main() {
     if (!dragging) {
       if (Math.hypot(event.screenX - pointer.startX, event.screenY - pointer.startY) <= 4) return
       dragging = true
+      syncGif()
       if (running || asking()) {
         void moveBall(lastOrigin.x, lastOrigin.y)
         return
       }
       collapsing = true
-      pinned = false
-      document.body.classList.remove('pinned')
       void setExpanded(false, true).then(() => {
         collapsing = false
         if (dragging && lastOrigin !== undefined) void moveBall(lastOrigin.x, lastOrigin.y)
@@ -1820,6 +1910,7 @@ function main() {
         : { x: event.screenX - pointer.dx, y: event.screenY - pointer.dy }
       pointer = undefined
       lastOrigin = undefined
+      syncGif()
       const skipDock = skipDockCommit
       skipDockCommit = false
       if (!skipDock) {
@@ -1842,9 +1933,8 @@ function main() {
       skipClick = false
       return
     }
-    pinned = !pinned
-    document.body.classList.toggle('pinned', pinned)
-    if (pinned) await setExpanded(true)
+    suppressExpand = false
+    await setExpanded(true)
   })
   ball.addEventListener('pointercancel', (event) => { void finishPointer(event) })
   ball.addEventListener('lostpointercapture', (event) => { void finishPointer(event) })
@@ -1985,6 +2075,15 @@ function main() {
     api.send(payload)
   }
   prompt.addEventListener('input', syncComposerHeight)
+  prompt.addEventListener('compositionstart', () => {
+    composing = true
+    clearCollapseTimer()
+  })
+  prompt.addEventListener('compositionend', () => {
+    composing = false
+    syncComposerHeight()
+    scheduleCollapse()
+  })
   prompt.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' || event.shiftKey || isComposing(event)) return
     event.preventDefault()
@@ -2027,6 +2126,17 @@ function main() {
     setPermissionOpen(false)
   })
   historyButton.addEventListener('click', () => { setHistoryOpen(!historyOpen) })
+  panelControl.addEventListener('click', () => {
+    if (panelControlAction(panelState()) === 'minimize') {
+      minimizePanel()
+      return
+    }
+    pinned = !pinned
+    document.body.classList.toggle('pinned', pinned)
+    syncPanelControl()
+    if (pinned) clearCollapseTimer()
+    else scheduleCollapse()
+  })
   newConversation.addEventListener('click', () => {
     setHistoryOpen(false)
     setPermissionOpen(false)
@@ -2093,9 +2203,33 @@ function main() {
   tccScreenOpen.addEventListener('click', () => { void openTccRight('screen') })
   tccAccessibilityOpen.addEventListener('click', () => { void openTccRight('accessibility') })
   api.onAvatar((src) => {
-    avatarSrc = typeof src === 'string' && src !== '' ? src : 'deepseek-avatar-square.gif'
+    const skin = src?.kind === 'skin' && src?.id === 'mascot-v10'
+    if (!skin) mascotFailed = false
+    mascotRequested = skin
+    avatarSrc = skin ? 'avatars/mascot-v10.png' : typeof src === 'string' && src !== '' ? src : 'deepseek-avatar-square.gif'
     const gif = document.querySelector('#ball-gif')
     if (!gif) return
+    if (!skin) {
+      mascotRenderer?.setEnabled(false)
+      document.querySelector('#ball-mascot').hidden = true
+      gif.hidden = false
+    } else if (!mascotRenderer && !mascotLoading && !mascotFailed) {
+      const fallback = (error) => {
+        mascotRenderer?.dispose()
+        mascotRenderer = undefined
+        if (!mascotRequested || pageClosed()) return
+        mascotFailed = true
+        document.querySelector('#ball-mascot').hidden = true
+        gif.hidden = false
+        document.querySelector('#ball-mascot').dataset.renderer = 'fallback'
+        orbDiagnostic('mascot-fallback', { name: error?.name || 'Error' })
+        delete gif.dataset.mode
+        syncGif()
+      }
+      mascotLoading = createMascotRenderer(document.querySelector('#ball-mascot'), { onError: fallback })
+        .then(renderer => { mascotLoading = undefined; mascotRenderer = renderer; syncGif() })
+        .catch(error => { mascotLoading = undefined; fallback(error) })
+    }
     delete gif.dataset.mode
     syncGif()
   })
@@ -2126,6 +2260,7 @@ function main() {
     pending.error = typeof payload.text === 'string' ? payload.text : messages.incomplete
     renderQuestion()
   })
+  syncPanelControl()
   syncGif()
 }
 

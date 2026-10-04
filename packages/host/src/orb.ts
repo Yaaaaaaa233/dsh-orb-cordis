@@ -3,6 +3,7 @@
  * The helper never calls the official HTTP API. Messages arrive here and this process calls the host services.
  */
 
+import { diagnostic } from './diagnostics.ts'
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer, type Server, type Socket } from 'node:net'
@@ -10,7 +11,7 @@ import { dirname, resolve } from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import type { Appearance, ThemePreference } from './appearance.ts'
-import { avatarPresetSrc } from './avatar-presets.ts'
+import { avatarPresetSrc, findAvatarPreset } from './avatar-presets.ts'
 import { normalizeCatalog } from './catalog.ts'
 import { resolveElectronBinary } from './electron-runtime.ts'
 import { helperMain } from './helper-path.ts'
@@ -219,6 +220,7 @@ export class OrbRuntime {
   private sessionError: string | undefined
   private creating: Promise<string> | undefined
   private watermark = 0
+  private diagnosticLastPoll = 0
   private missingLogged = false
   private timer: ReturnType<typeof setInterval> | undefined
   private giveUp: ReturnType<typeof setTimeout> | undefined
@@ -553,7 +555,12 @@ export class OrbRuntime {
     this.foreground.start()
   }
 
+  private trace(event: string, fields: Record<string, unknown> = {}): void {
+    diagnostic('host', { event, watermark: this.watermark, running: this.turnRunning, watching: !!this.timer, sockets: this.sockets.size, ...fields })
+  }
+
   private async onPrompt(text: string): Promise<void> {
+    this.trace('prompt-enter')
     const trimmed = text.trim()
     if (!trimmed) return
     this.turnInterrupted = false
@@ -671,6 +678,7 @@ export class OrbRuntime {
   private watch(): void {
     if (!this.timer) this.timer = setInterval(() => this.drain(), 400)
     this.armIdle()
+    this.trace('watch-start')
   }
 
   /** Warn after 3 quiet minutes, but keep polling until the session goes idle. */
@@ -694,6 +702,7 @@ export class OrbRuntime {
     this.timer = undefined
     if (this.giveUp) clearTimeout(this.giveUp)
     this.giveUp = undefined
+    this.trace('watch-stop')
   }
 
   private drain(): void {
@@ -707,6 +716,10 @@ export class OrbRuntime {
       return
     }
     this.missingLogged = false
+    if (Date.now() - this.diagnosticLastPoll > 5000) {
+      this.diagnosticLastPoll = Date.now()
+      this.trace('poll')
+    }
     let fresh = false
     try {
       for (const event of session.snapshotEvents()) {
@@ -714,9 +727,11 @@ export class OrbRuntime {
         if (seq <= this.watermark) continue
         this.watermark = seq
         fresh = true
+        this.trace('consume', { seq, kind: event.type })
         this.consume(event.type, event.data, seq)
       }
     } catch (error) {
+      this.trace('consume-error', { name: error instanceof Error ? error.name : 'Unknown' })
       console.error(`dsh-orb: transcript read failed: ${error instanceof Error ? error.message : String(error)}`)
     }
     if (fresh && this.turnRunning) {
@@ -929,6 +944,7 @@ export class OrbRuntime {
   }
 
   private finishTurn(): void {
+    this.trace('finish-enter')
     this.turnRunning = false
     this.idleWarned = false
     this.selection.setSessionRunning(false)
@@ -947,6 +963,7 @@ export class OrbRuntime {
     this.broadcast({ type: 'turn', running: false, ...(this.turnInterrupted ? { interrupted: true } : {}) })
     this.turnInterrupted = false
     this.stopWatch()
+    this.trace('finish-exit')
     const reply = [...this.blockOrder].reverse().map((key) => this.blocks.get(key)).find((item) => item?.kind === 'assistant')
     console.error(`dsh-orb: turn done reply=${reply?.text.length ?? 0}`)
   }
@@ -1122,6 +1139,8 @@ export class OrbRuntime {
   }
 
   private broadcast(message: unknown): void {
+    const record = asRecord(message)
+    if (record?.type === 'turn') this.trace('turn-send', { running: record.running })
     for (const socket of this.sockets) this.send(socket, message)
   }
 
@@ -1594,6 +1613,8 @@ function avatarMessage(store: ProfileStore): Record<string, unknown> {
   const version = Math.trunc(store.avatarVersion())
   const selection = store.avatarSelection()
   if (selection.kind === 'preset') {
+    const skin = findAvatarPreset(selection.id)?.skin
+    if (skin !== undefined) return { type: 'avatar', kind: 'skin', id: skin, version }
     const src = avatarPresetSrc(selection.id)
     if (src !== undefined) return { type: 'avatar', kind: 'preset', src, version }
   }

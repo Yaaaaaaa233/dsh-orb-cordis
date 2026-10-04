@@ -21,16 +21,17 @@ function request(method: string, url: string, body?: Buffer | string, headers: R
   return Object.assign(stream, { method, url, headers }) as IncomingMessage
 }
 
-function response(): ServerResponse & { status: number; body: Buffer } {
+function response(): ServerResponse & { status: number; body: Buffer; headers: Record<string, unknown> } {
   const res = {
     status: 0,
     body: Buffer.alloc(0),
-    writeHead(status: number) { this.status = status },
+    headers: {} as Record<string, unknown>,
+    writeHead(status: number, headers: Record<string, unknown> = {}) { this.status = status; this.headers = headers },
     end(chunk?: Buffer | string) {
       if (chunk) this.body = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     },
   }
-  return res as ServerResponse & { status: number; body: Buffer }
+  return res as ServerResponse & { status: number; body: Buffer; headers: Record<string, unknown> }
 }
 
 describe('settings routes', () => {
@@ -229,6 +230,15 @@ describe('settings routes', () => {
     const currentPreset = response()
     await handler(request('GET', pickedSnapshot.avatarUrl, undefined, { 'x-dsh-orb-helper': 'helper-secret' }), currentPreset)
     assert.equal(currentPreset.body.equals(presetBytes.body), true)
+
+    const skinPick = response()
+    await handler(request('POST', '/.dsh-orb/avatar/preset', JSON.stringify({ preset: 'mascot-v10' }), { 'x-dsh-user': 'ok' }), skinPick)
+    assert.equal(JSON.parse(skinPick.body.toString('utf8')).avatarPresetId, 'mascot-v10')
+    const skinPreview = response()
+    await handler(request('GET', '/.dsh-orb/avatar', undefined, { 'x-dsh-orb-helper': 'helper-secret' }), skinPreview)
+    assert.equal(skinPreview.status, 200)
+    assert.equal(skinPreview.headers['content-type'], 'image/png')
+    assert.equal(skinPreview.body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])), true)
 
     const wrongPreset = response()
     await handler(request('POST', '/.dsh-orb/avatar/preset', JSON.stringify({ preset: 'gone' }), { 'x-dsh-user': 'ok' }), wrongPreset)

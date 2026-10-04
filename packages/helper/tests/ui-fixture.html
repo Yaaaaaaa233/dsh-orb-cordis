@@ -1,0 +1,77 @@
+<!doctype html><html lang="zh"><meta charset="utf-8"><title>Orb 修复版 · 隔离 UI 验证</title>
+<style>
+body{margin:0;padding:24px;font:14px -apple-system,sans-serif;background:#edf0f6;color:#26354e}h1{font-size:22px;margin:0 0 12px}button,select{font:inherit;padding:8px 12px;border:1px solid #c7cfdf;border-radius:8px;background:white;color:inherit;margin:0 8px 8px 0}main{display:flex;gap:32px;margin-top:18px}#stage{position:relative;width:440px;height:510px;background:#e0e6f0;border-radius:24px;flex:none}iframe{position:absolute;right:28px;bottom:28px;width:96px;height:96px;border:0;background:transparent}#result{white-space:pre-wrap;line-height:1.8;margin:0;max-width:740px}p{color:#73809b}
+</style>
+<h1>Orb 修复版 · 隔离 UI 验证</h1><p>真实 helper 页面 + 模拟桥接；不会向模型发送请求，也不会修改正在运行的 DSH。</p>
+<button id="open">展开</button><button id="run">模拟运行</button><button id="finish">模拟完成</button><button id="question">模拟提问</button><button id="theme">切换主题</button><select id="direction"><option value="up">向上展开</option><option value="down">向下展开</option></select><select id="horizontal"><option value="left">向左展开</option><option value="right">向右展开</option></select><button id="check">运行交互检查</button>
+<main><div id="stage"><iframe id="orb" src="/assets/fixture.html"></iframe></div><pre id="result">等待页面加载…</pre></main>
+<script>
+const frame=document.querySelector('#orb'),output=document.querySelector('#result')
+const pause=ms=>new Promise(r=>setTimeout(r,ms))
+const doc=()=>frame.contentDocument,win=()=>frame.contentWindow
+const emit=(name,value)=>win().fixture.emit(name,value)
+function clickBall(){doc().querySelector('#ball').dispatchEvent(new (win().PointerEvent)('pointerup',{button:0,bubbles:true}))}
+function pointer(type){doc().body.dispatchEvent(new (win().PointerEvent)(type))}
+function block(text,key='preview'){emit('onBlock',{type:'block',key,kind:'assistant',text,running:false,response:true})}
+function sample(){block('已查看项目目录。\n\n## 主要模块\n\n- 插件入口\n- 会话与任务管理\n- 桌面悬浮球界面\n\n页眉固定在正文外，向下滚动也不会覆盖消息。\n\n'+Array.from({length:6},(_,i)=>`第 ${i+1} 项：检查配置和模块之间的关系。`).join('\n\n'))}
+frame.addEventListener('load',()=>{output.textContent='页面就绪。可以展开检查，或运行交互检查。';setTimeout(sample,100)})
+document.querySelector('#open').onclick=()=>{clickBall();pointer('pointerenter')}
+document.querySelector('#run').onclick=()=>emit('onTurn',{running:true})
+document.querySelector('#finish').onclick=()=>{emit('onQuestionClear','question');emit('onTurn',{running:false})}
+function question(){emit('onQuestion',{id:'question',questions:[{id:'q',question:'是否继续检查？',options:[{label:'继续'}]}]})}
+document.querySelector('#question').onclick=question
+document.querySelector('#theme').onclick=()=>doc().body.toggleAttribute('data-ds-dark-theme')
+document.querySelector('#direction').onchange=()=>{frame.src='/assets/fixture.html?'+Date.now()}
+document.querySelector('#horizontal').onchange=()=>{frame.src='/assets/fixture.html?'+Date.now()}
+document.querySelector('#check').onclick=async()=>{
+  output.textContent='运行中…\n'
+  let passed=0
+  const check=(name,ok)=>{if(!ok)throw Error(name);passed++;output.textContent+=`✓ ${name}\n`}
+  const expanded=()=>doc().body.classList.contains('expanded')
+  const control=()=>doc().querySelector('#panel-control')
+  const prompt=()=>doc().querySelector('#prompt')
+  try{
+    emit('onQuestionClear','question');emit('onTurn',{running:false});await pause(40)
+    clickBall();pointer('pointerenter');await pause(360)
+    if(control().getAttribute('aria-pressed')==='true')control().click()
+    check('点击头像不再隐式保持',control().getAttribute('aria-pressed')==='false')
+    const header=doc().querySelector('#panel-header'),transcript=doc().querySelector('#transcript')
+    check('正文在页眉下方',transcript.getBoundingClientRect().top>=header.getBoundingClientRect().bottom)
+    const before=header.getBoundingClientRect().top;transcript.scrollTop=9999
+    check('正文滚动不改变页眉位置',header.getBoundingClientRect().top===before)
+    prompt().textContent='光标测试';prompt().dispatchEvent(new (win().Event)('input'))
+    const range=doc().createRange();range.selectNodeContents(prompt());const glyph=range.getBoundingClientRect(),box=prompt().getBoundingClientRect()
+    check('单行输入文字居中',Math.abs((glyph.top+glyph.bottom-box.top-box.bottom)/2)<3)
+    prompt().textContent='第一行\n第二行';prompt().dispatchEvent(new (win().Event)('input'))
+    check('多行输入自动增高',parseFloat(doc().body.style.getPropertyValue('--composer-height'))>72)
+    prompt().textContent=Array(15).fill('多行文本').join('\n');prompt().dispatchEvent(new (win().Event)('input'))
+    check('达到上限后输入区滚动',prompt().clientHeight===132&&prompt().scrollHeight>132)
+    prompt().textContent='';prompt().dispatchEvent(new (win().Event)('input'))
+    prompt().dispatchEvent(new (win().CompositionEvent)('compositionstart'));pointer('pointerleave');await pause(550)
+    check('拼音组合输入时移出面板不收起',expanded())
+    prompt().dispatchEvent(new (win().CompositionEvent)('compositionend'));await pause(550)
+    check('组合输入结束后恢复自动收起',!expanded())
+    clickBall();pointer('pointerenter');await pause(360);pointer('pointerleave');await pause(550);check('空闲鼠标移开自动收起',!expanded())
+    clickBall();pointer('pointerenter');await pause(360);control().click();pointer('pointerleave');await pause(550)
+    check('图钉开启后保持展开',expanded()&&control().getAttribute('aria-pressed')==='true')
+    control().click();await pause(550);check('取消保持后恢复自动收起',!expanded())
+    clickBall();pointer('pointerenter');await pause(360);pointer('pointerleave');await pause(50);emit('onTurn',{running:true});await pause(550)
+    check('运行开始取消待执行的自动收起',expanded())
+    check('运行时共用按钮切换为最小化',control().dataset.action==='minimize')
+    control().click();await pause(80);check('最小化保持任务运行',!expanded()&&doc().body.classList.contains('running')&&win().fixture.stops===0)
+    block('运行中的新消息','stream');await pause(100);check('新消息不撑开已最小化的窗口',!expanded())
+    question();await pause(100);check('问题只提示小球，不强制展开',!expanded()&&doc().body.classList.contains('asking'))
+    check('等待回答时小球提示可访问',doc().querySelector('#ball').getAttribute('aria-label').includes('需要回答'))
+    emit('onQuestionClear','question');emit('onTurn',{running:false});await pause(550)
+    check('任务完成后已收起的小球不弹开',!expanded()&&control().dataset.action==='pin')
+    clickBall();pointer('pointerenter');await pause(360);control().click();emit('onTurn',{running:true});await pause(40);emit('onTurn',{running:false});await pause(40)
+    check('运行前的保持设置在完成后恢复',control().getAttribute('aria-pressed')==='true')
+    control().click();emit('onTurn',{running:true});await pause(40);pointer('pointerleave');emit('onTurn',{running:false});await pause(550)
+    check('未保持的展开窗口完成后自动收起',!expanded())
+    const mode=document.querySelector('#horizontal').value+'-'+document.querySelector('#direction').value
+    output.textContent+=`\n${passed} 项全部通过（${mode}）。无模型调用、无停止任务请求。`
+    fetch('/result',{method:'POST',body:JSON.stringify({passed,mode,errors:[],stops:win().fixture.stops})})
+    clickBall();pointer('pointerenter');sample()
+  }catch(error){output.textContent+='\n✗ '+error.message;fetch('/result',{method:'POST',body:JSON.stringify({passed,error:error.message})})}
+}
+</script></html>

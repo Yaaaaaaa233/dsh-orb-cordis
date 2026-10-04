@@ -2,6 +2,7 @@
  * Floating ball window. The official dsh process owns the session; this process only draws and forwards one socket.
  */
 
+import { diagnostic } from './diagnostics.ts'
 import { app, BrowserWindow, clipboard, dialog, ipcMain, Menu, nativeTheme, screen, shell } from 'electron'
 import { request as httpRequest } from 'node:http'
 import { createConnection, type Socket } from 'node:net'
@@ -10,6 +11,7 @@ import { readAvatarChoice, type AvatarChoice } from './avatar.ts'
 import { collectChromeWindowIds, type NativeHandleWindow } from './chrome-windows.ts'
 import { FloatingPlacement, initialWindowBounds } from './geometry.ts'
 import { contextMenuTemplate } from './menu.ts'
+import { BALL_WINDOW_LEVEL } from './window-level.ts'
 import { attachOverlays, denyWindowPermissions } from './overlays.ts'
 import { type MenuCatalog, type MenuSelection } from './model-menu.ts'
 
@@ -232,10 +234,17 @@ function openWindow(): BrowserWindow {
   // The ball rests captureable; overlays.ts syncCloak lifts it out of captures
   // for the duration of each Computer Use capture or HID interval.
   denyWindowPermissions(created)
-  created.setAlwaysOnTop(true, 'screen-saver')
+  created.setAlwaysOnTop(true, BALL_WINDOW_LEVEL)
   if (process.platform === 'darwin') {
     created.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   }
+  created.webContents.on('console-message', (details) => {
+    if (!details.message.startsWith('ORB_DIAGNOSTIC ')) return
+    try { diagnostic('renderer', JSON.parse(details.message.slice(15))) } catch {}
+  })
+  created.webContents.on('render-process-gone', (_event, details) => {
+    diagnostic('helper', { event: 'renderer-gone', kind: details.reason })
+  })
   created.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   created.webContents.on('context-menu', (event, params) => {
     // Editable text and an active selection get the native menu (Copy/Paste);
@@ -328,6 +337,7 @@ function deliver(message: unknown): void {
     return
   }
   if (record.type === 'turn') {
+    diagnostic('helper', { event: 'turn-receive', running: (record as { running?: unknown }).running })
     win.webContents.send('orb:turn', message)
     return
   }
@@ -544,6 +554,10 @@ async function confirmMillifraction(window: BrowserWindow, enabled: boolean): Pr
 async function loadAvatar(choice: AvatarChoice): Promise<void> {
   const tokenId = ++avatarToken
   if (!win) return
+  if (choice.kind === 'skin') {
+    win.webContents.send('orb:avatar', { kind: 'skin', id: choice.id })
+    return
+  }
   if (choice.kind === 'preset') {
     // A shipped GIF: the page loads the file itself, no socket payload involved.
     win.webContents.send('orb:avatar', choice.src)

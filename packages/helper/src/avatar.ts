@@ -12,8 +12,12 @@ export type AvatarChoice =
   | { kind: 'default' }
   | { kind: 'preset'; src: string }
   | { kind: 'custom'; version: number }
+  | { kind: 'skin'; id: 'mascot-v10' }
 
 export function readAvatarChoice(record: Record<string, unknown>): AvatarChoice {
+  if (record.kind === 'skin' && record.id === 'mascot-v10') {
+    return { kind: 'skin', id: 'mascot-v10' }
+  }
   if (record.kind === 'preset' && typeof record.src === 'string' && PRESET_SRC.test(record.src)) {
     return { kind: 'preset', src: record.src }
   }

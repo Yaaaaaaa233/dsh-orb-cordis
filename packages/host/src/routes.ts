@@ -7,7 +7,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { readFile } from 'node:fs/promises'
-import { AVATAR_PRESETS, avatarPresetPath, isAvatarPresetId } from './avatar-presets.ts'
+import { AVATAR_PRESETS, avatarPresetPath, avatarPresetMime, isAvatarPresetId } from './avatar-presets.ts'
 import { normalizeCatalog, type ModelCatalog } from './catalog.ts'
 import {
   isAgentModelSelection,
@@ -104,7 +104,7 @@ async function handle(deps: RouteDeps, req: IncomingMessage, res: ServerResponse
   if ((method === 'GET' || method === 'HEAD') && path.startsWith(`${PREFIX}/avatar/preset/`)) {
     const id = decodeURIComponent(path.slice(`${PREFIX}/avatar/preset/`.length))
     const file = avatarPresetPath(id)
-    if (file === undefined || !await sendFile(res, method, file, 'image/gif')) {
+    if (file === undefined || !await sendFile(res, method, file, avatarPresetMime(id))) {
       res.writeHead(404)
       res.end()
     }
@@ -265,7 +265,7 @@ async function sendAvatar(store: ProfileStore, method: string, res: ServerRespon
   const selection = store.avatarSelection()
   if (selection.kind === 'preset') {
     const file = avatarPresetPath(selection.id)
-    if (file !== undefined && await sendFile(res, method, file, 'image/gif')) return
+    if (file !== undefined && await sendFile(res, method, file, avatarPresetMime(selection.id))) return
   }
   const custom = selection.kind === 'custom' ? store.readAvatar() : undefined
   if (custom !== undefined) {
