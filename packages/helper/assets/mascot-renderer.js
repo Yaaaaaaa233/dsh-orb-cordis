@@ -1,11 +1,12 @@
 import { MascotState } from './mascot-state.js'
 import { TAU, SYMBOL_PERIOD, SYMBOL_FADE, mod, smooth, statusSway } from './mascot-motion.js'
+import { HEAD_ROT, HEAD_TEX_X, HEAD_TEX_Y } from './mascot-gaze.js'
 
 // Extended lower/left artwork covers the circular crop throughout the sway.
 // Original head, eyes and hair-root coordinates remain fixed.
 const N = 1254, BODY_LEFT = 256, BODY_WIDTH = N + BODY_LEFT, BODY_HEIGHT = 1567, PAD = 100, TEX = BODY_WIDTH + PAD * 2, TEX_HEIGHT = BODY_HEIGHT + PAD * 2
 const fragment = `precision highp float;
-uniform sampler2D source; uniform vec2 size; uniform float time;
+uniform sampler2D source; uniform vec2 size; uniform float time; uniform vec2 look; uniform float lookRot;
 float sm(float a,float b,float x){float q=clamp((x-a)/(b-a),0.,1.);return q*q*(3.-2.*q);}
 void main(){
  vec2 p=vec2(gl_FragCoord.x/size.x*480.,(1.-gl_FragCoord.y/size.y)*480.);
@@ -13,8 +14,8 @@ void main(){
  float breath=sin(phase*2.),sway=sin(phase);
  float ba=.15*.01745329252*sway,ha=(1.1*sway+.25*sin(phase*2.+.4))*.01745329252;
  float head=1.-sm(1000.,1150.,y);
- float dx=-ba*(y-1240.)+head*(4.5*sway-ha*(y-1060.)+.008*sin(phase-.2)*(x-575.));
- float dy=ba*(x-600.)-(1240.-y)*.0048*breath+head*(ha*(x-600.)+2.5*sin(phase*2.+.5));
+ float dx=-ba*(y-1240.)+head*(4.5*sway-ha*(y-1060.)+.008*sin(phase-.2)*(x-575.)+look.x-lookRot*(y-1060.));
+ float dy=ba*(x-600.)-(1240.-y)*.0048*breath+head*(ha*(x-600.)+2.5*sin(phase*2.+.5)+look.y+lookRot*(x-600.));
  float left=(1.-sm(150.,320.,x))*sm(390.,1070.,y),right=sm(835.,1040.,x)*sm(590.,1190.,y);
  float bangs=1.5*exp(-pow((x-557.)/175.,2.)-pow((y-640.)/240.,2.))*sm(300.,600.,y)+.75*exp(-pow((x-264.)/145.,2.)-pow((y-530.)/185.,2.))*sm(210.,495.,y);
  dx+=left*20.*sin(phase-.43)+right*26.*sin(phase-.6)+bangs*18.*sin(phase-.52);
@@ -49,13 +50,17 @@ function createWarp(size) {
   gl.uniform1i(gl.getUniformLocation(program, 'source'), 0)
   gl.uniform2f(gl.getUniformLocation(program, 'size'), size, size)
   const clock = gl.getUniformLocation(program, 'time')
+  const lookAt = gl.getUniformLocation(program, 'look'), lookRotAt = gl.getUniformLocation(program, 'lookRot')
   canvas.addEventListener('webglcontextlost', event => event.preventDefault())
   return {
     canvas,
-    draw(source, time) {
+    draw(source, time, look, lookRot) {
       if (gl.isContextLost()) throw Error('Mascot WebGL context lost')
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source)
-      gl.uniform1f(clock, mod(time, 8)); gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+      gl.uniform1f(clock, mod(time, 8))
+      gl.uniform2f(lookAt, look.x, look.y)
+      gl.uniform1f(lookRotAt, lookRot)
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
     },
     dispose() { gl.deleteTexture(texture); gl.deleteBuffer(buffer); gl.deleteProgram(program); gl.getExtension('WEBGL_lose_context')?.loseContext() },
   }
@@ -125,13 +130,14 @@ export async function createMascotRenderer(canvas, { onError = () => {} } = {}) 
     src.save(); src.translate(579, 273); src.rotate(p.angle * Math.PI / 180); src.scale(.3737, .3737)
     src.transform(1, 0, Math.tan(p.ahogeBend * Math.PI / 180), 1, 0, 0); src.translate(-464, -948)
     src.drawImage(images[1], 0, 0, N, N); src.restore()
-    warp.draw(source, p.t)
+    warp.draw(source, p.t, { x: p.lookX * HEAD_TEX_X, y: p.lookY * HEAD_TEX_Y }, p.lookX * HEAD_ROT)
     ctx.setTransform(size / 480, 0, 0, size / 480, 0, 0)
     ctx.fillStyle = '#141b2a'; ctx.fillRect(0, 0, 480, 480)
     drawSymbols(ctx, images, p); ctx.drawImage(warp.canvas, 0, 0, 480, 480)
     canvas.dataset.mascotState = p.state; canvas.dataset.frames = String(++frames)
     canvas.dataset.renderer = 'webgl'
     canvas.dataset.gaze = `${p.gazeX.toFixed(1)},${p.gazeY.toFixed(1)}`
+    canvas.dataset.look = `${(p.lookX * HEAD_TEX_X).toFixed(1)},${(p.lookY * HEAD_TEX_Y).toFixed(1)}`
   }
   function tick(now) {
     frame = undefined

@@ -13,6 +13,18 @@ export const GAZE_TEX_X = 16
 export const GAZE_TEX_Y = 12
 /** Time constant of the eye follow, in ms. Long enough to read as a glance. */
 export const GAZE_TAU_MS = 150
+/**
+ * Head follow at full deflection, in texture px, plus the yaw about the neck.
+ * The head turns toward the pointer with the eyes, a beat behind them. Kept
+ * around three times the idle-sway budget, which the artwork covers without
+ * showing the circular crop; setting all three to 0 disables head follow and
+ * leaves the pointer working on the eyes alone.
+ */
+export const HEAD_TEX_X = 13
+export const HEAD_TEX_Y = 7
+export const HEAD_ROT = 0.020
+/** The head follows later than the eyes; that lag is what makes it read as a head. */
+export const HEAD_TAU_MS = 260
 
 function isPoint(value) {
   return typeof value === 'object' && value !== null

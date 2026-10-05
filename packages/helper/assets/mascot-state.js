@@ -1,5 +1,5 @@
 import { TAU, CYCLE, blink, idleAhoge, thinkingWiggle, rebound, smooth, ease5 } from './mascot-motion.js'
-import { GAZE_TAU_MS, GAZE_TEX_X, GAZE_TEX_Y } from './mascot-gaze.js'
+import { GAZE_TAU_MS, GAZE_TEX_X, GAZE_TEX_Y, HEAD_TAU_MS } from './mascot-gaze.js'
 
 export const SLEEP_AFTER_MS = 5 * 60 * 1000
 const blendAt = (b, now) => b.from + (b.to - b.from) * ease5(b.start, b.start + b.duration, now)
@@ -21,6 +21,8 @@ export class MascotState {
     /** Pointer direction the eyes follow, and the smoothed value actually drawn. */
     this.gazeTarget = { x: 0, y: 0 }
     this.gaze = { x: 0, y: 0 }
+    /** The head trails the eyes on its own, slower follower. */
+    this.head = { x: 0, y: 0 }
     this.gazeAt = this.born
   }
 
@@ -93,14 +95,20 @@ export class MascotState {
    * Follow the pointer with a time-based exponential approach.
    * A negative gap (a clock that went backwards) is ignored rather than
    * extrapolated; a long gap converges, exactly as a continuous follow would.
+   * The head runs its own, slower follower so it trails the eyes.
    */
   followGaze(now) {
     const dt = Math.max(0, now - this.gazeAt)
     this.gazeAt = now
     const k = 1 - Math.exp(-dt / GAZE_TAU_MS)
+    const head = 1 - Math.exp(-dt / HEAD_TAU_MS)
     this.gaze = {
       x: this.gaze.x + (this.gazeTarget.x - this.gaze.x) * k,
       y: this.gaze.y + (this.gazeTarget.y - this.gaze.y) * k,
+    }
+    this.head = {
+      x: this.head.x + (this.gazeTarget.x - this.head.x) * head,
+      y: this.head.y + (this.gazeTarget.y - this.head.y) * head,
     }
   }
 
@@ -126,6 +134,10 @@ export class MascotState {
       // pointer term rides on top of it in texture px.
       gazeX: 4 * Math.sin(t / CYCLE * TAU) + this.gaze.x * GAZE_TEX_X * gazeGate,
       gazeY: this.gaze.y * GAZE_TEX_Y * gazeGate,
+      // Head follow in the same units: the shader displaces the head region by
+      // this much, so the amplitudes live next to the eye ones.
+      lookX: this.head.x * gazeGate,
+      lookY: this.head.y * gazeGate,
       symbolTime: (now - this.sleepStart) / 1000 - .8,
     }
   }

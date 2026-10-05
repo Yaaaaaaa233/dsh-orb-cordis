@@ -18,6 +18,11 @@ function tracking(pose: { t: number; gazeX: number; gazeY: number }) {
   }
 }
 
+/** Both followers as a 0..1 fraction of their target, so the lags compare. */
+function followers(pose: { t: number; gazeX: number; gazeY: number; lookX: number; lookY: number }) {
+  return { eyes: tracking(pose).x / GAZE_TEX_X, head: pose.lookX }
+}
+
 describe('animated mascot state', () => {
   it('waits five minutes, closes gradually, and retains its body clock', () => {
     const f = fixture()
@@ -145,5 +150,32 @@ describe('animated mascot state', () => {
     f.advance(1500)
     assert.equal(f.state.pose().state, 'idle')
     assert.ok(tracking(f.state.pose()).x > GAZE_TEX_X * .9)
+  })
+
+  it('turns the head toward the pointer a beat behind the eyes', () => {
+    const f = fixture()
+    f.state.setGaze({ x: 1, y: 0 })
+    const early = followers(f.advance(160))
+    assert.ok(early.eyes > .6, `eyes ${early.eyes}`)
+    assert.ok(early.head > .3, `head ${early.head}`)
+    assert.ok(early.eyes > early.head + .1, `eyes ${early.eyes} head ${early.head}`)
+    const settled = followers(f.advance(900))
+    assert.ok(Math.abs(settled.eyes - settled.head) < .06, `eyes ${settled.eyes} head ${settled.head}`)
+  })
+
+  it('carries the head vertically and parks it with the eyes while asleep', () => {
+    const f = fixture()
+    f.state.setGaze({ x: 0, y: -1 })
+    assert.ok(f.advance(1200).lookY < -.9)
+    f.advance(300_100)
+    f.advance(1500)
+    const asleep = f.state.pose()
+    assert.equal(asleep.state, 'sleeping')
+    assert.equal(Math.abs(asleep.lookX), 0)
+    assert.equal(Math.abs(asleep.lookY), 0)
+    assert.equal(Math.abs(asleep.gazeY), 0)
+    f.state.update({ hovered: true })
+    f.advance(1500)
+    assert.ok(f.state.pose().lookY < -.9)
   })
 })

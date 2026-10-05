@@ -25,7 +25,7 @@ On startup the plugin spawns its own helper (a pinned, verified Electron runtime
 
 ### Local animated skin (0.0.0-local.7)
 
-Select **Puppet Bot** under **Settings → Floating Ball → Built-in animations**. It gently sways while idle, reacts to hover, sleeps after five idle minutes, and animates during the ball's own tasks. Task completion eases into a rebound. Sleep glyphs and the thinking spinner follow the body. Dragging, typing, active tasks and pending questions keep it awake. Docking suspends drawing and undocking resumes it. The eyes follow the pointer: they turn toward it while awake, rest on a pointer sitting on the ball, and stay centred while asleep, docked, or when the system asks for reduced motion.
+Select **Puppet Bot** under **Settings → Floating Ball → Built-in animations**. It gently sways while idle, reacts to hover, sleeps after five idle minutes, and animates during the ball's own tasks. Task completion eases into a rebound. Sleep glyphs and the thinking spinner follow the body. Dragging, typing, active tasks and pending questions keep it awake. Docking suspends drawing and undocking resumes it. The eyes and head follow the pointer: they turn toward it while awake (eyes first, head a beat behind), recentre on a pointer sitting on the ball, and stay centred while asleep, docked, or when the system asks for reduced motion.
 
 See [LOCAL-CHANGES.md](LOCAL-CHANGES.md) for the local changes and verification. Pick another avatar or restore the default to return to ordinary image mode.
 
