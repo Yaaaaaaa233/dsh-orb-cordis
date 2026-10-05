@@ -8,6 +8,37 @@
 
 > **声明** — 本项目由个人开发者维护，**与 DeepSeek AI 无任何隶属、认可或合作关系**。DeepSeek 名称、Logo 与头像素材归 DeepSeek AI 所有，此处仅作为上游项目自带的默认球头像使用。
 
+## Fork 当前进度
+
+这个 fork 正在跟进桌面端适配，并开发 Grokbot 风格的悬浮球皮肤。目前的改动已拆成两个独立 PR 提交上游，尚未合入上游项目：
+
+- [#61 — 独立页眉与明确的保持/最小化交互](https://github.com/mini-yifan/dsh-orb-cordis/pull/61)
+- [#65 — Grokbot 风格悬浮球外观与动画](https://github.com/mini-yifan/dsh-orb-cordis/pull/65)
+
+角色使用 v13 版素材，包含常态、休眠、思考、悬停互动和状态切换动画。由于 #65 复用了 #61 的 helper 面板基础，目前 GitHub 上 #65 的比较结果也包含这部分；#61 合并后，GitHub 会自动从 #65 的差异中扣除相同改动。下面的演示由 v13 预览生成，GIF 保存在独立的[演示素材分支](https://github.com/Yaaaaaaa233/dsh-orb-cordis/tree/codex/pr65-demo-media)，不进入可安装插件包。
+
+### v13 动画演示
+
+| 常态 | 休眠 |
+| --- | --- |
+| ![常态](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-idle-v13.gif) | ![休眠](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-sleep-v13.gif) |
+
+| 思考 | 悬停互动 |
+| --- | --- |
+| ![思考](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-thinking-v13.gif) | ![悬停互动](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-hover-v13.gif) |
+
+| 进入休眠 | 唤醒 |
+| --- | --- |
+| ![进入休眠](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-fall-asleep-v13.gif) | ![唤醒](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-wake-up-v13.gif) |
+
+| 开始思考 | 结束思考 |
+| --- | --- |
+| ![开始思考](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-start-thinking-v13.gif) | ![结束思考](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-stop-thinking-v13.gif) |
+
+| 睡眠 → 思考 | 思考 → 睡眠 |
+| --- | --- |
+| ![睡眠转思考](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-sleep-to-thinking-v13.gif) | ![思考转睡眠](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-thinking-to-sleep-v13.gif) |
+
 悬浮球停靠在屏幕右沿。告诉它你要什么：看得见的操作当场通过 Computer Use 执行；耗时长的复杂任务派给后台代码会话，完成后结果回到球里。主窗口保留完整的 dsh Web UI——会话管理、插件市场、模型设置——你仍然可以在里面写代码、改文件、跑命令。
 
 不收集任何遥测数据。

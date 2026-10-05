@@ -8,6 +8,37 @@ An unofficial personal plugin for [DeepSeek Harness](https://github.com/deepseek
 
 > **Disclaimer** — This is an unofficial project maintained by an individual developer. It is **not** affiliated with, endorsed by, or connected to DeepSeek AI in any way. DeepSeek, the DeepSeek logo, and the DeepSeek avatar artwork are the property of DeepSeek AI; they appear here only as the default ball avatar shipped by the upstream project.
 
+## Fork progress
+
+This fork is tracking desktop compatibility work and a custom Grokbot-style floating-ball skin. The current changes are proposed upstream in two separate pull requests and have not been merged into the upstream project:
+
+- [#61 — Independent panel header and explicit keep-open/minimize controls](https://github.com/mini-yifan/dsh-orb-cordis/pull/61)
+- [#65 — Grokbot-style mascot and animations](https://github.com/mini-yifan/dsh-orb-cordis/pull/65)
+
+The mascot work uses the v13 artwork and includes idle, sleep, thinking, hover, and state-transition animations. PR #65 currently includes the shared helper-panel foundation from #61; once #61 is merged, GitHub will recalculate #65 to show only its additional mascot changes. The demonstrations below are rendered from the v13 preview. Their GIF files are kept on the [demo-media branch](https://github.com/Yaaaaaaa233/dsh-orb-cordis/tree/codex/pr65-demo-media), outside the installable plugin bundle.
+
+### v13 animation demos
+
+| Idle | Sleep |
+| --- | --- |
+| ![Idle](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-idle-v13.gif) | ![Sleep](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-sleep-v13.gif) |
+
+| Thinking | Hover interaction |
+| --- | --- |
+| ![Thinking](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-thinking-v13.gif) | ![Hover interaction](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-hover-v13.gif) |
+
+| Falling asleep | Waking up |
+| --- | --- |
+| ![Falling asleep](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-fall-asleep-v13.gif) | ![Waking up](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-wake-up-v13.gif) |
+
+| Start thinking | Stop thinking |
+| --- | --- |
+| ![Start thinking](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-start-thinking-v13.gif) | ![Stop thinking](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-stop-thinking-v13.gif) |
+
+| Sleep → thinking | Thinking → sleep |
+| --- | --- |
+| ![Sleep to thinking](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-sleep-to-thinking-v13.gif) | ![Thinking to sleep](https://raw.githubusercontent.com/Yaaaaaaa233/dsh-orb-cordis/codex/pr65-demo-media/pr-assets/grokbot-orb-thinking-to-sleep-v13.gif) |
+
 A floating ball rests at the right edge of your screen. Tell it what you need: quick, visible actions are executed directly in the current app through Computer Use; long-running complex tasks are dispatched to a background coding session, and the result comes back to the ball when it finishes. The main window keeps the full dsh Web UI — session management, the plugin market, and model settings — so you can still write code, edit files, and run commands in it.
 
 There is no telemetry.
