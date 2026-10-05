@@ -1,11 +1,21 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { MascotState, SLEEP_AFTER_MS } from '../assets/mascot-state.js'
+import { CYCLE, TAU } from '../assets/mascot-motion.js'
+import { GAZE_TEX_X, GAZE_TEX_Y } from '../assets/mascot-gaze.js'
 
 function fixture() {
   let time = 0
   const state = new MascotState({ now: () => time })
   return { state, advance(ms: number) { time += ms; return state.pose() } }
+}
+
+/** The idle drift is always present, so tests isolate the pointer term. */
+function tracking(pose: { t: number; gazeX: number; gazeY: number }) {
+  return {
+    x: pose.gazeX - 4 * Math.sin(pose.t / CYCLE * TAU),
+    y: pose.gazeY,
+  }
 }
 
 describe('animated mascot state', () => {
@@ -85,5 +95,55 @@ describe('animated mascot state', () => {
     assert.ok(Math.abs(f.state.pose().angle - before.angle) < .0001)
     assert.ok(Math.abs(f.state.pose().ahogeBend - before.ahogeBend) < .0001)
     assert.equal(f.advance(800).thinking, 1)
+  })
+
+  it('glides the eyes toward the pointer without overshooting the budget', () => {
+    const f = fixture()
+    f.state.setGaze({ x: 1, y: 0 })
+    let previous = tracking(f.state.pose()).x
+    assert.equal(previous, 0)
+    for (let step = 0; step < 60; step += 1) {
+      const current = tracking(f.advance(16)).x
+      assert.ok(current >= previous - 1e-9, `tracking went backwards at step ${step}`)
+      assert.ok(current <= GAZE_TEX_X + 1e-9)
+      previous = current
+    }
+    assert.ok(Math.abs(previous - GAZE_TEX_X) < .05, `settled at ${previous}`)
+  })
+
+  it('carries the vertical pointer term and returns to centre when the pointer is gone', () => {
+    const f = fixture()
+    f.state.setGaze({ x: 0, y: -1 })
+    f.advance(600)
+    assert.ok(tracking(f.state.pose()).y < -GAZE_TEX_Y * .9)
+    f.state.setGaze(null)
+    f.advance(900)
+    const settled = tracking(f.state.pose())
+    assert.ok(Math.abs(settled.x) < .2 && Math.abs(settled.y) < .2, settled)
+  })
+
+  it('ignores a malformed pointer instead of throwing', () => {
+    const f = fixture()
+    f.state.setGaze({ x: Number.NaN, y: 2 })
+    f.advance(400)
+    assert.deepEqual(tracking(f.state.pose()), { x: 0, y: 0 })
+    f.state.setGaze(undefined)
+    assert.deepEqual(tracking(f.advance(400)), { x: 0, y: 0 })
+  })
+
+  it('parks the eyes while asleep and picks the pointer up again after waking', () => {
+    const f = fixture()
+    f.state.setGaze({ x: 1, y: 0 })
+    f.advance(600)
+    assert.ok(tracking(f.state.pose()).x > GAZE_TEX_X * .9)
+    f.advance(300_100)
+    assert.equal(f.state.pose().state, 'falling-asleep')
+    f.advance(1500)
+    assert.equal(f.state.pose().state, 'sleeping')
+    assert.ok(Math.abs(tracking(f.state.pose()).x) < .2)
+    f.state.update({ hovered: true })
+    f.advance(1500)
+    assert.equal(f.state.pose().state, 'idle')
+    assert.ok(tracking(f.state.pose()).x > GAZE_TEX_X * .9)
   })
 })

@@ -131,6 +131,7 @@ export async function createMascotRenderer(canvas, { onError = () => {} } = {}) 
     drawSymbols(ctx, images, p); ctx.drawImage(warp.canvas, 0, 0, 480, 480)
     canvas.dataset.mascotState = p.state; canvas.dataset.frames = String(++frames)
     canvas.dataset.renderer = 'webgl'
+    canvas.dataset.gaze = `${p.gazeX.toFixed(1)},${p.gazeY.toFixed(1)}`
   }
   function tick(now) {
     frame = undefined
@@ -149,6 +150,7 @@ export async function createMascotRenderer(canvas, { onError = () => {} } = {}) 
   document.addEventListener('visibilitychange', resume)
   return {
     update(activity) { state.update(activity); visible = activity.visible !== false; resume() },
+    setGaze(target) { state.setGaze(target) },
     interact(pulse = false) { state.interact(undefined, pulse) },
     setEnabled(next) { if (next && !enabled) state.interact(); enabled = next; resume() },
     dispose() { disposed = true; resume(); document.removeEventListener('visibilitychange', resume); warp.dispose() },

@@ -55,6 +55,9 @@ contextBridge.exposeInMainWorld('dshOrb', {
   onBlock(callback) {
     ipcRenderer.on('orb:block', (_event, block) => callback(block))
   },
+  onGaze(callback) {
+    ipcRenderer.on('orb:gaze', (_event, point) => callback(point))
+  },
   onBlockDrop(callback) {
     ipcRenderer.on('orb:block-drop', (_event, key) => callback(key))
   },

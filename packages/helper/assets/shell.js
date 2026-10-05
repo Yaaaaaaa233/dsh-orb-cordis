@@ -13,6 +13,7 @@ import {
 } from './transcript-model.js'
 import { upgradeCodeBlocks } from './highlight.js'
 import { createMascotRenderer } from './mascot-renderer.js'
+import { gazeVector } from './mascot-gaze.js'
 import { canAutoCollapse, panelControlAction } from './panel-state.js'
 import {
   icon, THINK, CHEVRON_DOWN, CHEVRON_UP, SEARCH, GLOBE, BROWSE, EDIT, CODE, API, SPARKLE, COPY, CHECK, stateSpinner,
@@ -295,6 +296,9 @@ function main() {
   let mascotRequested = false
   let mascotRenderer, mascotLoading
   let mascotFailed = false, ballHovered = false
+  // Pointer position in window coordinates, straight from the helper's sampler.
+  let gazePointer
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
   window.addEventListener('pagehide', () => mascotRenderer?.dispose(), { once: true })
   let historyItems = []
   const blocks = new Map()
@@ -435,6 +439,26 @@ function main() {
     void setExpanded(false, true)
   }
 
+  /**
+   * Direction the eyes follow, in the ball's own coordinates.
+   * A docked tab, a missing avatar and the reduced-motion preference all park
+   * the eyes straight ahead; the sleep gate lives in the mascot state.
+   */
+  function applyGaze() {
+    if (!mascotRenderer) return
+    if (gazePointer === undefined || docked !== undefined || reducedMotion.matches) {
+      mascotRenderer.setGaze(null)
+      return
+    }
+    const ball = document.querySelector('#ball')
+    if (!ball) {
+      mascotRenderer.setGaze(null)
+      return
+    }
+    const rect = ball.getBoundingClientRect()
+    mascotRenderer.setGaze(gazeVector(gazePointer, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }))
+  }
+
   function syncGif() {
     if (pageClosed()) return
     const gif = document.querySelector('#ball-gif')
@@ -442,6 +466,7 @@ function main() {
       mascotRenderer?.update({ running, asking: asking(), hovered: ballHovered, dragging, visible: docked === undefined })
       if (mascotRenderer) {
         mascotRenderer.setEnabled(true)
+        applyGaze()
         document.querySelector('#ball-mascot').hidden = false
         gif.hidden = true
       } else if (gif.getAttribute('src') !== avatarSrc) gif.src = avatarSrc
@@ -2234,6 +2259,14 @@ function main() {
     syncGif()
   })
   api.onStatus((text) => { status.textContent = typeof text === 'string' ? text : '' })
+  // The helper samples the pointer; the page turns it into an eye direction.
+  if (typeof api.onGaze === 'function') {
+    api.onGaze((point) => {
+      gazePointer = point ?? undefined
+      applyGaze()
+    })
+  }
+  reducedMotion.addEventListener('change', applyGaze)
   // The theme arrives as the helper's nativeTheme (the prefers-color-scheme
   // query above follows it); the locale switches the whole page dictionary.
   if (typeof api.onAppearance === 'function') {

@@ -1,4 +1,5 @@
 import { TAU, CYCLE, blink, idleAhoge, thinkingWiggle, rebound, smooth, ease5 } from './mascot-motion.js'
+import { GAZE_TAU_MS, GAZE_TEX_X, GAZE_TEX_Y } from './mascot-gaze.js'
 
 export const SLEEP_AFTER_MS = 5 * 60 * 1000
 const blendAt = (b, now) => b.from + (b.to - b.from) * ease5(b.start, b.start + b.duration, now)
@@ -17,6 +18,21 @@ export class MascotState {
     this.bend = { from: 0, start: this.born - 550 }
     this.hoverStart = -Infinity
     this.sleepStart = this.born
+    /** Pointer direction the eyes follow, and the smoothed value actually drawn. */
+    this.gazeTarget = { x: 0, y: 0 }
+    this.gaze = { x: 0, y: 0 }
+    this.gazeAt = this.born
+  }
+
+  /**
+   * Direction the eyes should follow, in the renderer's ball coordinates, or
+   * `null` to look straight ahead. Smoothing and the sleep gate live here so a
+   * pointer jump never snaps the eyes and a sleeping character never tracks.
+   */
+  setGaze(target) {
+    this.gazeTarget = Number.isFinite(target?.x) && Number.isFinite(target?.y)
+      ? { x: target.x, y: target.y }
+      : { x: 0, y: 0 }
   }
 
   interact(now = this.now(), pulse = false) {
@@ -73,9 +89,28 @@ export class MascotState {
     return this.bend.from * (1 - gain) + current * gain
   }
 
+  /**
+   * Follow the pointer with a time-based exponential approach.
+   * A negative gap (a clock that went backwards) is ignored rather than
+   * extrapolated; a long gap converges, exactly as a continuous follow would.
+   */
+  followGaze(now) {
+    const dt = Math.max(0, now - this.gazeAt)
+    this.gazeAt = now
+    const k = 1 - Math.exp(-dt / GAZE_TAU_MS)
+    this.gaze = {
+      x: this.gaze.x + (this.gazeTarget.x - this.gaze.x) * k,
+      y: this.gaze.y + (this.gazeTarget.y - this.gaze.y) * k,
+    }
+  }
+
   pose(now = this.now()) {
     this.evaluateSleep(now)
     const t = (now - this.born) / 1000, sleep = blendAt(this.sleep, now), thinking = blendAt(this.thinking, now)
+    this.followGaze(now)
+    // Awake only: the same ramp the body uses keeps the eyes from tracking
+    // while the character closes them for the five-minute sleep.
+    const gazeGate = 1 - smooth(.3, .8, sleep)
     const angle = this.thought(now), q = (now - this.hoverStart) / 1000
     const hover = Number.isFinite(q) && q >= 0 ? 27 * Math.exp(-2.1 * q) * Math.sin(11 * q) : 0
     const state = this.running && !this.asking ? 'thinking'
@@ -87,7 +122,10 @@ export class MascotState {
       open: (1 - sleep) * blink(t),
       angle: idleAhoge(t) + angle + hover * (1 - thinking) * (1 - sleep),
       ahogeBend: this.bendValue(now),
-      gazeX: 4 * Math.sin(t / CYCLE * TAU), gazeY: 0,
+      // Idle drift keeps the eyes alive when nothing points at the ball; the
+      // pointer term rides on top of it in texture px.
+      gazeX: 4 * Math.sin(t / CYCLE * TAU) + this.gaze.x * GAZE_TEX_X * gazeGate,
+      gazeY: this.gaze.y * GAZE_TEX_Y * gazeGate,
       symbolTime: (now - this.sleepStart) / 1000 - .8,
     }
   }

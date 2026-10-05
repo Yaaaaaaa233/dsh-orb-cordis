@@ -3,7 +3,7 @@
 body{margin:0;padding:24px;font:14px -apple-system,sans-serif;background:#edf0f6;color:#26354e}h1{font-size:22px;margin:0 0 12px}button,select{font:inherit;padding:8px 12px;border:1px solid #c7cfdf;border-radius:8px;background:white;color:inherit;margin:0 8px 8px 0}main{display:flex;gap:32px;margin-top:18px}#stage{position:relative;width:440px;height:510px;background:#e0e6f0;border-radius:24px;flex:none}iframe{position:absolute;right:28px;bottom:28px;width:96px;height:96px;border:0;background:transparent}#result{white-space:pre-wrap;line-height:1.8;margin:0;max-width:740px}p{color:#73809b}
 </style>
 <h1>Orb 修复版 · 隔离 UI 验证</h1><p>真实 helper 页面 + 模拟桥接；不会向模型发送请求，也不会修改正在运行的 DSH。</p>
-<button id="open">展开</button><button id="run">模拟运行</button><button id="finish">模拟完成</button><button id="question">模拟提问</button><button id="theme">切换主题</button><select id="direction"><option value="up">向上展开</option><option value="down">向下展开</option></select><select id="horizontal"><option value="left">向左展开</option><option value="right">向右展开</option></select><button id="check">运行交互检查</button>
+<button id="open">展开</button><button id="run">模拟运行</button><button id="finish">模拟完成</button><button id="question">模拟提问</button><button id="theme">切换主题</button><select id="direction"><option value="up">向上展开</option><option value="down">向下展开</option></select><select id="horizontal"><option value="left">向左展开</option><option value="right">向右展开</option></select><button id="check">运行交互检查</button><button id="gaze">视线 360° 检查</button>
 <main><div id="stage"><iframe id="orb" src="/assets/fixture.html"></iframe></div><pre id="result">等待页面加载…</pre></main>
 <script>
 const frame=document.querySelector('#orb'),output=document.querySelector('#result')
@@ -73,5 +73,28 @@ document.querySelector('#check').onclick=async()=>{
     fetch('/result',{method:'POST',body:JSON.stringify({passed,mode,errors:[],stops:win().fixture.stops})})
     clickBall();pointer('pointerenter');sample()
   }catch(error){output.textContent+='\n✗ '+error.message;fetch('/result',{method:'POST',body:JSON.stringify({passed,error:error.message})})}
+}
+// Pointer gaze: feed the bridge eight directions and read back what the eyes do.
+// The bridge only carries the pointer; the page computes direction and clamp.
+document.querySelector('#gaze').onclick=async()=>{
+  output.textContent='视线检查…\n'
+  const rows=[]
+  const canvas=()=>doc().querySelector('#ball-mascot')
+  try{
+    emit('onAvatar',{kind:'skin',id:'mascot-v10',version:9001});await pause(700)
+    const rect=()=>doc().querySelector('#ball').getBoundingClientRect()
+    for(let i=0;i<8;i++){
+      const angle=i*Math.PI/4, r=rect()
+      emit('onGaze',{x:r.left+r.width/2+Math.cos(angle)*600,y:r.top+r.height/2+Math.sin(angle)*600})
+      await pause(340)
+      rows.push(`${String(i*45).padStart(3,' ')}°  ${canvas().dataset.gaze||'—'}`)
+    }
+    const park=rect()
+    emit('onGaze',{x:park.left+park.width/2,y:park.top+park.height/2});await pause(400)
+    rows.push(`球上  ${canvas().dataset.gaze||'—'}`)
+    emit('onGaze',null);await pause(400)
+    rows.push(`移开  ${canvas().dataset.gaze||'—'}`)
+    output.textContent='视线检查（gazeX,gazeY / 纹理像素）：\n'+rows.join('\n')+'\n看数值方向是否跟随角度、球上是否回中。\n'
+  }catch(error){output.textContent+='\n✗ '+error.message}
 }
 </script></html>

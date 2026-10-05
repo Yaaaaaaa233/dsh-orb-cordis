@@ -20,7 +20,14 @@ async function until(fn, timeout = 5000) {
 }
 const js = code => win.webContents.executeJavaScript(code)
 const send = message => socket.write(JSON.stringify(message)+'\n')
-const info = () => js(`(()=>{const c=document.querySelector('#ball-mascot'),b=document.querySelector('#ball');return {state:c.dataset.mascotState,frames:Number(c.dataset.frames),renderer:c.dataset.renderer,hidden:c.hidden,gifHidden:document.querySelector('#ball-gif').hidden,expanded:document.body.classList.contains('expanded'),docked:document.body.classList.contains('docked'),rect:b.getBoundingClientRect().toJSON()}})()`)
+const info = () => js(`(()=>{const c=document.querySelector('#ball-mascot'),b=document.querySelector('#ball');return {state:c.dataset.mascotState,frames:Number(c.dataset.frames),renderer:c.dataset.renderer,gaze:(c.dataset.gaze||'0,0').split(',').map(Number),hidden:c.hidden,gifHidden:document.querySelector('#ball-gif').hidden,expanded:document.body.classList.contains('expanded'),docked:document.body.classList.contains('docked'),rect:b.getBoundingClientRect().toJSON()}})()`)
+// The helper samples the pointer; DSH_ORB_TEST_CURSOR pins it so the isolated
+// window can drive the eyes without moving the real cursor.
+async function pointAt(dx, dy) {
+  const bounds = win.getBounds(), r = (await info()).rect
+  process.env.DSH_ORB_TEST_CURSOR = `${Math.round(bounds.x + r.x + r.width / 2 + dx)},${Math.round(bounds.y + r.y + r.height / 2 + dy)}`
+}
+function clearPointer() { delete process.env.DSH_ORB_TEST_CURSOR }
 async function capture(name, ballOnly = true) {
   const i = await info(), r = i.rect
   const image = await win.webContents.capturePage(ballOnly ? { x: Math.round(r.x), y: Math.round(r.y), width: 72, height: 72 } : undefined)
@@ -91,14 +98,35 @@ async function main() {
   const first = i.frames, started = Date.now(); await pause(1000); i = await info()
   check('Collapsed idle stays animated', i.frames-first >= 15, { fps: (i.frames-first)*1000/(Date.now()-started) })
 
+  await pointAt(600, 0); await pause(500)
+  let gaze = (await info()).gaze
+  check('Pointer to the right looks right', gaze[0] > 8 && Math.abs(gaze[1]) < 5, { gaze })
+  await pointAt(0, -600); await pause(500)
+  gaze = (await info()).gaze
+  check('Pointer above looks up', gaze[1] < -6, { gaze })
+  await pointAt(-600, 600); await pause(600)
+  gaze = (await info()).gaze
+  check('Pointer down-left looks down-left', gaze[0] < -6 && gaze[1] > 4, { gaze })
+  await capture('native-gaze-left')
+  await pointAt(0, 0); await pause(600)
+  gaze = (await info()).gaze
+  check('Pointer on the ball parks the eyes', Math.abs(gaze[0]) < 5 && Math.abs(gaze[1]) < 1, { gaze })
+
   await js(`window.advanceMascotClock(300_100)`); await pause(80)
   check('Five-minute idle starts closing the eyes', (await info()).state === 'falling-asleep')
   await pause(2200)
   check('Sleep becomes a continuous animation', (await info()).state === 'sleeping')
+  await pointAt(600, 0); await pause(300)
+  gaze = (await info()).gaze
+  check('Sleeping eyes ignore the pointer', Math.abs(gaze[0]) < 5, { gaze })
   await capture('native-sleep')
   await js(`document.querySelector('#ball').dispatchEvent(new PointerEvent('pointerenter'))`)
   await pause(80); check('Hover wakes the sleeping character', (await info()).state === 'waking')
   await pause(750); check('Hover returns to awake idle', (await info()).state === 'idle')
+  await pause(400)
+  gaze = (await info()).gaze
+  check('Waking picks the pointer back up', gaze[0] > 8, { gaze })
+  await pointAt(0, 0); await pause(500); clearPointer()
   await js(`document.querySelector('#ball').dispatchEvent(new PointerEvent('pointerleave'))`)
 
   send({ type: 'turn', running: true }); await pause(900)

@@ -74,8 +74,56 @@ let live: Socket | undefined
 let quitting = false
 let buffer = ''
 
+/**
+ * Pointer sampling for the eyes.
+ * The ball only needs the pointer while its window is on screen, and the page
+ * owns the direction maths because it knows where the 72px ball sits inside the
+ * window. `DSH_ORB_TEST_CURSOR="x,y"` pins the pointer so the isolated window
+ * test can drive the gaze without moving the real cursor.
+ */
+const GAZE_INTERVAL_MS = 33
+let gazeTimer: ReturnType<typeof setInterval> | undefined
+let lastGaze: { x: number; y: number } | undefined
+
+function cursorPoint(): { x: number; y: number } | undefined {
+  const pinned = process.env.DSH_ORB_TEST_CURSOR
+  if (pinned !== undefined && pinned !== '') {
+    const [x, y] = pinned.split(',').map(Number)
+    return Number.isFinite(x) && Number.isFinite(y) ? { x, y } : undefined
+  }
+  try {
+    return screen.getCursorScreenPoint()
+  } catch {
+    return undefined
+  }
+}
+
+function pushGaze(): void {
+  if (!win || win.isDestroyed() || !win.isVisible()) return
+  const point = cursorPoint()
+  if (point === undefined) return
+  const bounds = win.getBounds()
+  const x = Math.round(point.x - bounds.x), y = Math.round(point.y - bounds.y)
+  // A still pointer must not fill the channel: the page glides to each new target.
+  if (lastGaze !== undefined && Math.abs(lastGaze.x - x) < 1 && Math.abs(lastGaze.y - y) < 1) return
+  lastGaze = { x, y }
+  win.webContents.send('orb:gaze', { x, y })
+}
+
+function startGaze(): void {
+  if (gazeTimer !== undefined) return
+  gazeTimer = setInterval(pushGaze, GAZE_INTERVAL_MS)
+}
+
+function stopGaze(): void {
+  if (gazeTimer === undefined) return
+  clearInterval(gazeTimer)
+  gazeTimer = undefined
+}
+
 app.on('before-quit', () => {
   quitting = true
+  stopGaze()
   live?.destroy()
 })
 app.on('window-all-closed', () => {
@@ -85,6 +133,7 @@ app.on('window-all-closed', () => {
 void app.whenReady().then(async () => {
   if (process.platform === 'darwin') app.dock?.hide()
   win = openWindow()
+  startGaze()
   try {
     overlays = await attachOverlays({ ball: () => win, write })
   } catch (error) {
