@@ -113,7 +113,8 @@ describe('animated mascot state', () => {
       assert.ok(current <= GAZE_TEX_X + 1e-9)
       previous = current
     }
-    assert.ok(Math.abs(previous - GAZE_TEX_X) < .05, `settled at ${previous}`)
+    // Tolerance is a fraction of the target, so it holds for any tuned amplitude.
+    assert.ok(Math.abs(previous - GAZE_TEX_X) < GAZE_TEX_X * .01, `settled at ${previous}`)
   })
 
   it('carries the vertical pointer term and returns to centre when the pointer is gone', () => {

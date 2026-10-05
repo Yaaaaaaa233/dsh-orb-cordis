@@ -9,20 +9,21 @@ export const GAZE_REF = 360
 /** Pointer jitter resting on the ball must not move the eyes. */
 export const GAZE_DEADZONE = 24
 /** Eye travel in texture px at full deflection. The lens half-width is ~54px. */
-export const GAZE_TEX_X = 16
-export const GAZE_TEX_Y = 12
+export const GAZE_TEX_X = 34
+export const GAZE_TEX_Y = 26
 /** Time constant of the eye follow, in ms. Long enough to read as a glance. */
 export const GAZE_TAU_MS = 150
 /**
  * Head follow at full deflection, in texture px, plus the yaw about the neck.
- * The head turns toward the pointer with the eyes, a beat behind them. Kept
- * around three times the idle-sway budget, which the artwork covers without
- * showing the circular crop; setting all three to 0 disables head follow and
- * leaves the pointer working on the eyes alone.
+ * The head turns toward the pointer with the eyes, a beat behind them. This is the
+ * strongest setting the artwork takes: both modules were rendered at every extreme
+ * pointer direction and the circular crop still hides the head, the neck and the
+ * hair roots. Setting all three to 0 disables head follow and leaves the pointer
+ * working on the eyes alone.
  */
-export const HEAD_TEX_X = 13
-export const HEAD_TEX_Y = 7
-export const HEAD_ROT = 0.020
+export const HEAD_TEX_X = 30
+export const HEAD_TEX_Y = 17
+export const HEAD_ROT = 0.050
 /** The head follows later than the eyes; that lag is what makes it read as a head. */
 export const HEAD_TAU_MS = 260
 

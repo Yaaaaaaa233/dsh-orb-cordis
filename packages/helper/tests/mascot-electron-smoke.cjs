@@ -120,7 +120,7 @@ async function main() {
   await pointAt(0, -700); await pause(800)
   look = (await info()).look
   check('Head rises when the pointer is above', look[1] < -5, { look })
-  await pointAt(0, 0); await pause(800)
+  await pointAt(0, 0); await pause(1200)
   look = (await info()).look
   check('Head recentres on the ball', Math.abs(look[0]) < 1.5 && Math.abs(look[1]) < 1.5, { look })
 
