@@ -23,9 +23,11 @@ On startup the plugin spawns its own helper (a pinned, verified Electron runtime
 - Appearance follows the main window: dark / light theme and interface language (Chinese / English) mirror the official appearance and language settings, including live switching.
 - The ball avatar can be set to one of six built-in animated GIFs, or replaced with a custom GIF / PNG / WebP (2 MB cap), in main-window **Settings → Floating Ball**. The built-ins stay animated: the ball plays them whenever it is active, exactly like the shipped default.
 
-### Local animated skin (0.0.0-local.7)
+### Local animated skin (0.0.0-local.8)
 
 Select **Puppet Bot** under **Settings → Floating Ball → Built-in animations**. It gently sways while idle, reacts to hover, sleeps after five idle minutes, and animates during the ball's own tasks. Task completion eases into a rebound. Sleep glyphs and the thinking spinner follow the body. Dragging, typing, active tasks and pending questions keep it awake. Docking suspends drawing and undocking resumes it. The eyes and head follow the pointer: they turn toward it while awake (eyes first, head a beat behind), recentre on a pointer sitting on the ball, and stay centred while asleep, docked, or when the system asks for reduced motion.
+
+This build ships the strongest follow setting (eyes 34×26, head 30×17 texture px plus a 2.9° yaw). Strength and the off switch live in `packages/helper/assets/mascot-gaze.js`: `GAZE_TEX_X/Y` drive the eyes, `HEAD_TEX_X/Y` and `HEAD_ROT` the head, and setting all of them to 0 turns pointer follow off. An installed copy keeps the same file at `<profile>/node_modules/dsh-orb/dist/helper/assets/mascot-gaze.js`; restart the app after editing, no repack needed.
 
 See [LOCAL-CHANGES.md](LOCAL-CHANGES.md) for the local changes and verification. Pick another avatar or restore the default to return to ordinary image mode.
 
